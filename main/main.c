@@ -21,8 +21,8 @@
 #include "ds18b20.h"
 #include "driver/gpio.h"
 
-#define WIFI_SSID		"VIVOFIBRA-B521"
-#define WIFI_PASSWORD	"LvBsqVk234"
+#define WIFI_SSID		"VIVO-A225"
+#define WIFI_PASSWORD	"Georgia2021#@#"
 #define MAXIMUM_RETRY   5
 #define WIFI_CONNECTED_BIT BIT0
 #define WIFI_FAIL_BIT      BIT1
@@ -39,7 +39,9 @@ static EventGroupHandle_t s_wifi_event_group;
 static int s_retry_num = 0;
 static const char *TAG = "hx711-example";
 const char tempChar[5];
+const char volChar[5];
 int aux = 1;
+int auxVol = 1;
 
 static void event_handler(void* arg, esp_event_base_t event_base,
                                 int32_t event_id, void* event_data)
@@ -123,8 +125,8 @@ void wifi_init_sta(void)
 }
 
 const char menu_resp[] = "<h3>Sistema de Automacao Hidroponia</h3><button><a href=\"/volume\">Volume</a></button><br><button><a href=\"/temperatura\">Temperatura</a></button><br><button><a href=\"/ligar\">Ligar Bomba</button></a><br><button><a href=\"/desligar\">Desligar Bomba</button></a>";
-const char on_resp[100] = "<h3>Resultado da Temperatura: 123";
-const char resto_on_resp[30] = "</h3><a href=\"/\"><button>Voltar</button</a>";
+//const char on_resp[100] = "<h3>Resultado da Temperatura: 123";
+//const char resto_on_resp[30] = "</h3><a href=\"/\"><button>Voltar</button</a>";
 
 
 //const char temperatura_resp[];
@@ -136,11 +138,55 @@ esp_err_t get_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+void hx711_uso() {
+
+    hx711_t dev = {
+        .dout = 4,
+        .pd_sck = 2,
+        .gain = HX711_GAIN_A_64
+    };
+
+    ESP_ERROR_CHECK(hx711_init(&dev));
+
+    esp_err_t r = hx711_wait(&dev, 500);
+        if (r != ESP_OK) {
+            ESP_LOGE(TAG, "Device not found: %d (%s)\n", r, esp_err_to_name(r));
+            //continue;
+        }
+
+        int32_t data;
+        r = hx711_read_average(&dev, 5, &data);
+        if (r != ESP_OK) {
+            ESP_LOGE(TAG, "Could not read data: %d (%s)\n", r, esp_err_to_name(r));
+            //continue;
+        }
+
+        ESP_LOGI(TAG, "Raw data: %" PRIi32, data);
+        printf("CÉLULA DE CARGAAAAAAAAAA");
+        printf("%d", data);
+
+        snprintf(volChar, 50, "%d", data);
+        printf("%s", volChar);
+
+        vTaskDelay(pdMS_TO_TICKS(500));
+}
+
 esp_err_t volume_handler(httpd_req_t *req) {
-    // codigo da célula de carga
-    //gpio_set_level(LIGHT_PIN, 0);
-	//light_state = 0;
-    httpd_resp_send(req, on_resp, HTTPD_RESP_USE_STRLEN);
+    hx711_uso();
+
+    const char vol_resp[200] = "<h3>Resultado do Volume: ";
+    const char resto_vol_resp[100] = "</h3><a href=\"/\"><button>Voltar</button</a>";
+
+    printf("CHAMOU O HANDLEEEER");
+
+    if (auxVol == 1) {
+        strcat(vol_resp, volChar);
+        strcat(vol_resp, resto_vol_resp);
+        printf("%s", vol_resp);
+        auxVol = 0;
+    }
+
+    httpd_resp_send(req, vol_resp, HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
 }
 
@@ -177,6 +223,8 @@ void ds18b20_uso(){
     vTaskDelay(1000 / portTICK_PERIOD_MS);
 }
 
+
+
 esp_err_t temperatura_handler(httpd_req_t *req) {
     ds18b20_uso();
 
@@ -200,7 +248,7 @@ esp_err_t off_bomb_handler(httpd_req_t *req) {
     // desligar o led
     //gpio_set_level(LIGHT_PIN, 0);
 	//light_state = 0;
-    httpd_resp_send(req, on_resp, HTTPD_RESP_USE_STRLEN);
+    //httpd_resp_send(req, on_resp, HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
 }
 
@@ -208,7 +256,7 @@ esp_err_t on_bomb_handler(httpd_req_t *req) {
     // ligar o led
     //gpio_set_level(LIGHT_PIN, 1);
 	//light_state = 1;
-    httpd_resp_send(req, on_resp, HTTPD_RESP_USE_STRLEN);
+    //httpd_resp_send(req, on_resp, HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
 }
 
@@ -316,14 +364,14 @@ void app_main(void) {
     wifi_init_sta();        
 	setup_server();
 
-    hx711_t dev = {
+    /*hx711_t dev = {
         .dout = 4,
         .pd_sck = 2,
         .gain = HX711_GAIN_A_64
-    };
+    };*/
 
     // initialize device
-    ESP_ERROR_CHECK(hx711_init(&dev));
+    //ESP_ERROR_CHECK(hx711_init(&dev));
 
     gpio_reset_pin(LED);
     gpio_set_direction(LED, GPIO_MODE_OUTPUT);
@@ -337,27 +385,10 @@ void app_main(void) {
 
 
     // read from device
-    while (1)
-    {
+    while (1) {
+        printf("alo");
         ds18b20_uso();
-        esp_err_t r = hx711_wait(&dev, 500);
-        if (r != ESP_OK)
-        {
-            ESP_LOGE(TAG, "Device not found: %d (%s)\n", r, esp_err_to_name(r));
-            continue;
-        }
-
-        int32_t data;
-        r = hx711_read_average(&dev, 5, &data);
-        if (r != ESP_OK)
-        {
-            ESP_LOGE(TAG, "Could not read data: %d (%s)\n", r, esp_err_to_name(r));
-            continue;
-        }
-
-        ESP_LOGI(TAG, "Raw data: %" PRIi32, data);
-
-        vTaskDelay(pdMS_TO_TICKS(500));
+        hx711_uso();
     } 
 
 }
