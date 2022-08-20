@@ -65,8 +65,7 @@ static void event_handler(void* arg, esp_event_base_t event_base,
     }
 }
 
-void wifi_init_sta(void)
-{
+void wifi_init_sta(void) {
     s_wifi_event_group = xEventGroupCreate();
 
     ESP_ERROR_CHECK(esp_netif_init());
@@ -101,8 +100,6 @@ void wifi_init_sta(void)
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config) );
     ESP_ERROR_CHECK(esp_wifi_start() );
 
-    //ESP_LOGI(TAG, "wifi_init_sta finalizado.");
-
     /* Aguardando até que a conexão seja estabelecida (WIFI_CONNECTED_BIT) ou a conexão falhe pelo máximo
     número de tentativas (WIFI_FAIL_BIT). */
     EventBits_t bits = xEventGroupWaitBits(s_wifi_event_group,
@@ -125,15 +122,8 @@ void wifi_init_sta(void)
 }
 
 const char menu_resp[] = "<h3>Sistema de Automacao Hidroponia</h3><button><a href=\"/volume\">Volume</a></button><br><button><a href=\"/temperatura\">Temperatura</a></button><br><button><a href=\"/ligar\">Ligar Bomba</button></a><br><button><a href=\"/desligar\">Desligar Bomba</button></a>";
-//const char on_resp[100] = "<h3>Resultado da Temperatura: 123";
-//const char resto_on_resp[30] = "</h3><a href=\"/\"><button>Voltar</button</a>";
 
-
-//const char temperatura_resp[];
-//const char volume_resp[];
-
-esp_err_t get_handler(httpd_req_t *req)
-{	
+esp_err_t get_handler(httpd_req_t *req) {	
 	httpd_resp_send(req, menu_resp, HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
 }
@@ -174,19 +164,26 @@ void hx711_uso() {
 esp_err_t volume_handler(httpd_req_t *req) {
     hx711_uso();
 
-    const char vol_resp[200] = "<h3>Resultado do Volume: ";
-    const char resto_vol_resp[100] = "</h3><a href=\"/\"><button>Voltar</button</a>";
+    const char vol_resp[26] = "<h3>Resultado do Volume: ";
+    const char resto_vol_resp[100] = "</h3><a href=\"/\"><button>Voltar</button</a><a href=\"/volume\"><button>Atualizar</button></a>";
+    const char void_resp[150] = "";
 
     printf("CHAMOU O HANDLEEEER");
 
-    if (auxVol == 1) {
+    strcat(void_resp, vol_resp);
+    strcat(void_resp, volChar);
+    strcat(void_resp, resto_vol_resp);
+    printf("%s", void_resp);
+
+    /*if (auxVol == 1) {
         strcat(vol_resp, volChar);
         strcat(vol_resp, resto_vol_resp);
         printf("%s", vol_resp);
         auxVol = 0;
-    }
+    }*/
 
-    httpd_resp_send(req, vol_resp, HTTPD_RESP_USE_STRLEN);
+
+    httpd_resp_send(req, void_resp, HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
 }
 
@@ -205,42 +202,26 @@ void ds18b20_uso(){
     if (cTemp > 0) {
         snprintf(tempChar, 50, "%.1f", cTemp);
         printf("%s", tempChar);
-    }
-
-    /*snprintf(tempChar, 50, "%.1f", cTemp);
-    printf("%s", tempChar);*/
-
-    /*const char on_resp[200] = "<h3>Resultado da Temperatura: 456";
-    const char resto_on_resp[100] = "</h3><a href=\"/\"><button>Voltar</button</a>";
-
-    if (aux == 1) {
-        strcat(on_resp, tempChar);
-        strcat(on_resp, resto_on_resp);
-        printf("%s", on_resp);
-        aux = 0;
-    } */    
+    }   
 
     vTaskDelay(1000 / portTICK_PERIOD_MS);
 }
 
-
-
 esp_err_t temperatura_handler(httpd_req_t *req) {
     ds18b20_uso();
 
-    const char on_resp[200] = "<h3>Resultado da Temperatura: ";
-    const char resto_on_resp[100] = "</h3><a href=\"/\"><button>Voltar</button</a>";
+    const char on_resp[50] = "<h3>Resultado da Temperatura: ";
+    const char resto_on_resp[200] = "</h3><a href=\"/\"><button>Voltar</button</a><a href=\"/temperatura\"><button>Atualizar</button></a>";
+    const char void_temp_resp[300] = "";
 
     printf("CHAMOU O HANDLEEEER");
 
-    if (aux == 1) {
-        strcat(on_resp, tempChar);
-        strcat(on_resp, resto_on_resp);
-        printf("%s", on_resp);
-        aux = 0;
-    }
+    strcat(void_temp_resp, on_resp);
+    strcat(void_temp_resp, tempChar);
+    strcat(void_temp_resp, resto_on_resp);
+    //printf("%s", on_resp);
 
-    httpd_resp_send(req, on_resp, HTTPD_RESP_USE_STRLEN);
+    httpd_resp_send(req, void_temp_resp, HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
 }
 
@@ -295,8 +276,7 @@ httpd_uri_t uri_off_bomb = {
     .user_ctx = NULL
 };
 
-httpd_handle_t setup_server(void)
-{
+httpd_handle_t setup_server(void) {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     httpd_handle_t server = NULL;
 
@@ -336,21 +316,7 @@ void getTempAddresses(DeviceAddress *tempSensorAddresses) {
 	return;
 }
 
-
-
 void app_main(void) {
-
-    //const char on_resp[200] = "<h3>Resultado da Temperatura: 789";
-    //const char resto_on_resp[30] = "</h3><a href=\"/\"><button>Voltar</button</a>";
-    //printf("ENTROU AQUIII 111 .......");
-    //ds18b20_uso();
-
-    /*printf("ENTROU AQUIII 222 .......");
-    strcpy(on_resp, tempChar);
-    printf("ENTROU AQUIII 333 .......");
-    strcpy(on_resp, resto_on_resp);
-    printf("ENTROU AQUIII 4444 .......");
-    printf("%s", on_resp);*/
 
     //Initialize NVS caso necessite guardar alguma config na flash.
     esp_err_t ret = nvs_flash_init();
@@ -360,18 +326,8 @@ void app_main(void) {
     }
     ESP_ERROR_CHECK(ret);
 
-    //ESP_LOGI(TAG, "ESP_WIFI_MODE_STA");
     wifi_init_sta();        
 	setup_server();
-
-    /*hx711_t dev = {
-        .dout = 4,
-        .pd_sck = 2,
-        .gain = HX711_GAIN_A_64
-    };*/
-
-    // initialize device
-    //ESP_ERROR_CHECK(hx711_init(&dev));
 
     gpio_reset_pin(LED);
     gpio_set_direction(LED, GPIO_MODE_OUTPUT);
@@ -383,8 +339,6 @@ void app_main(void) {
     printf("Address 0: 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x \n", tempSensors[0][0],tempSensors[0][1],tempSensors[0][2],tempSensors[0][3],tempSensors[0][4],tempSensors[0][5],tempSensors[0][6],tempSensors[0][7]);
 	printf("Address 1: 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x \n", tempSensors[1][0],tempSensors[1][1],tempSensors[1][2],tempSensors[1][3],tempSensors[1][4],tempSensors[1][5],tempSensors[1][6],tempSensors[1][7]);
 
-
-    // read from device
     while (1) {
         printf("alo");
         ds18b20_uso();
