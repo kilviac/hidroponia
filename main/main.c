@@ -121,7 +121,9 @@ void wifi_init_sta(void) {
     }
 }
 
-const char menu_resp[] = "<h3>Sistema de Automacao Hidroponia</h3><button><a href=\"/volume\">Volume</a></button><br><button><a href=\"/temperatura\">Temperatura</a></button><br><button><a href=\"/ligar\">Ligar Bomba</button></a><br><button><a href=\"/desligar\">Desligar Bomba</button></a>";
+const char menu_resp[] = "<h3>Sistema de Automacao Hidroponia</h3><button><a href=\"/volume\">Volume</a></button><br><button><a href=\"/temperatura\">Temperatura</a></button><br><button><a href=\"/ligar\">Ligar Bomba</button></a><br><button><a href=\"/desligar\">Desligar Bomba</button></a><br><a href=\"/telegram\">Telegram</button></a>";
+const char telegram_resp[] = "<object width='0' height='0' type='text/html' data='https://api.telegram.org/bot5631568641:AAFePicn19oVp3fiNxkqtY1mnZ90bdApaDE/sendMessage?chat_id=-662165667&text=temp'></object>Mensagem Enviada para o Telegram!<br><br><a href=\"/\"><button>VOLTAR</button</a>";
+
 
 esp_err_t get_handler(httpd_req_t *req) {	
 	httpd_resp_send(req, menu_resp, HTTPD_RESP_USE_STRLEN);
@@ -243,6 +245,13 @@ esp_err_t on_bomb_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
+esp_err_t telegram_handler(httpd_req_t *req) {
+    httpd_resp_send(req, telegram_resp, HTTPD_RESP_USE_STRLEN);
+    printf("CHEGOU AQUIIIIIIIIIIII");
+    printf("%s", telegram_resp);
+    return ESP_OK;
+}
+
 httpd_uri_t uri_get = {
     .uri      = "/",
     .method   = HTTP_GET,
@@ -278,6 +287,13 @@ httpd_uri_t uri_off_bomb = {
     .user_ctx = NULL
 };
 
+httpd_uri_t uri_telegram = {
+    .uri      = "/telegram",
+    .method   = HTTP_GET,
+    .handler  = telegram_handler,
+    .user_ctx = NULL
+};
+
 httpd_handle_t setup_server(void) {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     httpd_handle_t server = NULL;
@@ -288,6 +304,7 @@ httpd_handle_t setup_server(void) {
 		httpd_register_uri_handler(server, &uri_temperatura);
 		httpd_register_uri_handler(server, &uri_on_bomb);
 		httpd_register_uri_handler(server, &uri_off_bomb);
+        httpd_register_uri_handler(server, &uri_telegram);
     }
 
     return server;
