@@ -199,11 +199,13 @@ void ds18b20_uso(){
     float cTemp = ds18b20_get_temp();
     printf("Temperature: %0.1fC\n", cTemp);
     
-    if (cTemp > 0) {
+    /*if (cTemp > 0) {
         snprintf(tempChar, 50, "%.1f", cTemp);
         printf("%s", tempChar);
-    }   
+    }*/   
 
+    snprintf(tempChar, 50, "%.1f", cTemp);
+    printf("%s", tempChar);
     vTaskDelay(1000 / portTICK_PERIOD_MS);
 }
 
