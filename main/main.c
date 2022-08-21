@@ -21,8 +21,8 @@
 #include "ds18b20.h"
 #include "driver/gpio.h"
 
-#define WIFI_SSID		"VIVO-A225"
-#define WIFI_PASSWORD	"Georgia2021#@#"
+#define WIFI_SSID		"brisa-965670"
+#define WIFI_PASSWORD	"ibn1ryq3"
 #define MAXIMUM_RETRY   5
 #define WIFI_CONNECTED_BIT BIT0
 #define WIFI_FAIL_BIT      BIT1
@@ -31,6 +31,7 @@
 #define HIGH 1
 #define LOW 0
 #define digitalWrite gpio_set_level
+#define LIGHT_PIN GPIO_NUM_32
 
 DeviceAddress tempSensors[2];
 
@@ -42,6 +43,8 @@ const char tempChar[5];
 const char volChar[5];
 int aux = 1;
 int auxVol = 1;
+
+static uint8_t light_state = 0;
 
 static void event_handler(void* arg, esp_event_base_t event_base,
                                 int32_t event_id, void* event_data)
@@ -121,9 +124,9 @@ void wifi_init_sta(void) {
     }
 }
 
-const char menu_resp[] = "<h3>Sistema de Automacao Hidroponia</h3><button><a href=\"/volume\">Volume</a></button><br><button><a href=\"/temperatura\">Temperatura</a></button><br><button><a href=\"/ligar\">Ligar Bomba</button></a><br><button><a href=\"/desligar\">Desligar Bomba</button></a><br><a href=\"/telegram\">Telegram</button></a>";
+const char menu_resp[] = "<h3>Sistema de Automacao Hidroponia</h3><button><a href=\"/volume\">Volume</a></button><br><button><a href=\"/temperatura\">Temperatura</a></button><br><button><a href=\"/ligar\">Ligar Bomba</button></a><br><button><a href=\"/telegram\">Telegram</button></a>";
 const char telegram_resp[] = "<object width='0' height='0' type='text/html' data='https://api.telegram.org/bot5631568641:AAFePicn19oVp3fiNxkqtY1mnZ90bdApaDE/sendMessage?chat_id=-662165667&text=temp'></object>Mensagem Enviada para o Telegram!<br><br><a href=\"/\"><button>VOLTAR</button</a>";
-
+const char bomba_resp[] = "<h3>Bomba ligada!</h3><button><a href=\"/desligar\">Desligar Bomba</button></a><br><a href=\"/\"><button>VOLTAR</button</a>";
 
 esp_err_t get_handler(httpd_req_t *req) {	
 	httpd_resp_send(req, menu_resp, HTTPD_RESP_USE_STRLEN);
@@ -230,18 +233,18 @@ esp_err_t temperatura_handler(httpd_req_t *req) {
 }
 
 esp_err_t off_bomb_handler(httpd_req_t *req) {
-    // desligar o led
-    //gpio_set_level(LIGHT_PIN, 0);
-	//light_state = 0;
-    //httpd_resp_send(req, on_resp, HTTPD_RESP_USE_STRLEN);
+    gpio_set_level(LIGHT_PIN, 0);
+    printf("\nDESLIGAR LED\n");
+	light_state = 0;
+    httpd_resp_send(req, bomba_resp, HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
 }
 
 esp_err_t on_bomb_handler(httpd_req_t *req) {
-    // ligar o led
-    //gpio_set_level(LIGHT_PIN, 1);
-	//light_state = 1;
-    //httpd_resp_send(req, on_resp, HTTPD_RESP_USE_STRLEN);
+    gpio_set_level(LIGHT_PIN, 1);
+    printf("\nLIGAR LED\n");
+	light_state = 1;
+    httpd_resp_send(req, bomba_resp, HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
 }
 
@@ -337,6 +340,10 @@ void getTempAddresses(DeviceAddress *tempSensorAddresses) {
 
 void app_main(void) {
 
+    system("start https://blog.eletrogate.com/nodemcu-esp12-alarme-residencial-iot-3/");
+    //system("open https://blog.eletrogate.com/nodemcu-esp12-alarme-residencial-iot-3/");
+    //ShellExecute(NULL, "open", "https://blog.eletrogate.com/nodemcu-esp12-alarme-residencial-iot-3/", NULL, NULL, SW_SHOWNORMAL);
+
     //Initialize NVS caso necessite guardar alguma config na flash.
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
@@ -348,8 +355,12 @@ void app_main(void) {
     wifi_init_sta();        
 	setup_server();
 
-    gpio_reset_pin(LED);
-    gpio_set_direction(LED, GPIO_MODE_OUTPUT);
+    gpio_set_direction(LIGHT_PIN, GPIO_MODE_OUTPUT);
+	gpio_set_level(LIGHT_PIN, 0);
+	light_state = 0;
+
+    //gpio_reset_pin(LED);
+    //gpio_set_direction(LED, GPIO_MODE_OUTPUT);
 
 	ds18b20_init(TEMP_BUS);
 	getTempAddresses(tempSensors);
@@ -364,4 +375,4 @@ void app_main(void) {
         hx711_uso();
     } 
 
-}
+        }

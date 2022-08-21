@@ -12,5 +12,10 @@
     "idf.pythonBinPathWin": "C:\\Users\\kilvia.da.s.carvalho\\.espressif\\python_env\\idf4.4_py3.8_env\\Scripts\\python.exe",
     "idf.toolsPathWin": "C:\\Users\\kilvia.da.s.carvalho\\.espressif",
     "cmake.configureOnOpen": false,
-    "idf.flashType": "UART"
+    "idf.flashType": "UART",
+    "files.associations": {
+        "array": "c",
+        "string": "c",
+        "string_view": "c"
+    }
 }
