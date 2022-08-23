@@ -124,7 +124,7 @@ void wifi_init_sta(void) {
 }
 
 const char menu_resp[] = "<h3>Sistema de Automacao Hidroponia</h3><button><a href=\"/volume\">Volume</a></button><br><button><a href=\"/temperatura\">Temperatura</a></button><br><button><a href=\"/ligar\">Ligar Bomba</button></a><br><button><a href=\"/telegram\">Telegram</button></a>";
-const char telegram_resp[] = "<object width='0' height='0' type='text/html' data='https://api.telegram.org/bot5631568641:AAFePicn19oVp3fiNxkqtY1mnZ90bdApaDE/sendMessage?chat_id=-662165667&text=temp'></object>Mensagem Enviada para o Telegram!<br><br><a href=\"/\"><button>VOLTAR</button</a>";
+const char telegram_resp[] = "<object width='0' height='0' type='text/html' data='https://api.telegram.org/bot5631568641:AAFePicn19oVp3fiNxkqtY1mnZ90bdApaDE/sendMessage?chat_id=-662165667&text=sistema_funcionando'></object>Mensagem Enviada para o Telegram!<br><br><a href=\"/\"><button>VOLTAR</button</a>";
 const char bomba_resp[] = "<h3>Bomba ligada!</h3><button><a href=\"/desligar\">Desligar Bomba</button></a><br><a href=\"/\"><button>VOLTAR</button</a>";
 
 void hx711_uso() {
@@ -153,6 +153,8 @@ void hx711_uso() {
 
         float unit = (float) PESOBASE / (float) (ZEROVAL - CALIBVAL);
         float grama = (float) (ZEROVAL - data) * unit;
+
+        //printf("\n\nGRAMA %f\n\n", grama);
 
         float volume = grama*1000000;
         
@@ -234,8 +236,27 @@ esp_err_t on_bomb_handler(httpd_req_t *req) {
 }
 
 esp_err_t telegram_handler(httpd_req_t *req) {
-    httpd_resp_send(req, telegram_resp, HTTPD_RESP_USE_STRLEN);
-    printf("%s", telegram_resp);
+
+    const char telegram_resp[200] = "<object width='0' height='0' type='text/html' data='https://api.telegram.org/bot5631568641:AAFePicn19oVp3fiNxkqtY1mnZ90bdApaDE/sendMessage?chat_id=-662165667&text=";
+    const char telegram_resto_resp[150] = "'></object>Mensagem Enviada para o Telegram!<br><br><a href=\"/\"><button>VOLTAR</button</a>";
+    const char void_telegram_resp[450] = "";
+
+    strcat(void_telegram_resp, telegram_resp);
+    strcat(void_telegram_resp, "STATUS%0ATemperatura: ");
+    strcat(void_telegram_resp, tempChar);
+    strcat(void_telegram_resp, "%0AVolume: ");
+    strcat(void_telegram_resp, volChar);
+
+    if (light_state == 1) {
+        strcat(void_telegram_resp, "%0ABomba ligada!");
+    } else {
+        strcat(void_telegram_resp, "%0ABomba desligada!");
+    }
+
+    strcat(void_telegram_resp, telegram_resto_resp);
+    
+    httpd_resp_send(req, void_telegram_resp, HTTPD_RESP_USE_STRLEN);
+
     return ESP_OK;
 }
 
