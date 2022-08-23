@@ -20,9 +20,10 @@
 #include <stdio.h>
 #include "ds18b20.h"
 #include "driver/gpio.h"
+#include <math.h>
 
-#define WIFI_SSID		"brisa-965670"
-#define WIFI_PASSWORD	"ibn1ryq3"
+#define WIFI_SSID		"brisa-1564207"
+#define WIFI_PASSWORD	"ws6uqosn"
 #define MAXIMUM_RETRY   5
 #define WIFI_CONNECTED_BIT BIT0
 #define WIFI_FAIL_BIT      BIT1
@@ -32,6 +33,9 @@
 #define LOW 0
 #define digitalWrite gpio_set_level
 #define LIGHT_PIN GPIO_NUM_32
+#define ZEROVAL 858602765
+#define CALIBVAL 8586059026.8
+#define PESOBASE 250
 
 DeviceAddress tempSensors[2];
 
@@ -55,14 +59,11 @@ static void event_handler(void* arg, esp_event_base_t event_base,
         if (s_retry_num < MAXIMUM_RETRY) {
             esp_wifi_connect();
             s_retry_num++;
-            //ESP_LOGI(TAG, "Tente reconectar ao AP");
         } else {
             xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
         }
-        //ESP_LOGI(TAG,"Falha de conexao com o AP");
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
-        //ESP_LOGI(TAG, "IP:" IPSTR, IP2STR(&event->ip_info.ip));
         s_retry_num = 0;
         xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
     }
@@ -103,8 +104,6 @@ void wifi_init_sta(void) {
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config) );
     ESP_ERROR_CHECK(esp_wifi_start() );
 
-    /* Aguardando até que a conexão seja estabelecida (WIFI_CONNECTED_BIT) ou a conexão falhe pelo máximo
-    número de tentativas (WIFI_FAIL_BIT). */
     EventBits_t bits = xEventGroupWaitBits(s_wifi_event_group,
             WIFI_CONNECTED_BIT | WIFI_FAIL_BIT,
             pdFALSE,
@@ -128,11 +127,6 @@ const char menu_resp[] = "<h3>Sistema de Automacao Hidroponia</h3><button><a hre
 const char telegram_resp[] = "<object width='0' height='0' type='text/html' data='https://api.telegram.org/bot5631568641:AAFePicn19oVp3fiNxkqtY1mnZ90bdApaDE/sendMessage?chat_id=-662165667&text=temp'></object>Mensagem Enviada para o Telegram!<br><br><a href=\"/\"><button>VOLTAR</button</a>";
 const char bomba_resp[] = "<h3>Bomba ligada!</h3><button><a href=\"/desligar\">Desligar Bomba</button></a><br><a href=\"/\"><button>VOLTAR</button</a>";
 
-esp_err_t get_handler(httpd_req_t *req) {	
-	httpd_resp_send(req, menu_resp, HTTPD_RESP_USE_STRLEN);
-    return ESP_OK;
-}
-
 void hx711_uso() {
 
     hx711_t dev = {
@@ -146,24 +140,52 @@ void hx711_uso() {
     esp_err_t r = hx711_wait(&dev, 500);
         if (r != ESP_OK) {
             ESP_LOGE(TAG, "Device not found: %d (%s)\n", r, esp_err_to_name(r));
-            //continue;
         }
 
         int32_t data;
         r = hx711_read_average(&dev, 5, &data);
         if (r != ESP_OK) {
             ESP_LOGE(TAG, "Could not read data: %d (%s)\n", r, esp_err_to_name(r));
-            //continue;
         }
 
         ESP_LOGI(TAG, "Raw data: %" PRIi32, data);
-        printf("CÉLULA DE CARGAAAAAAAAAA");
         printf("%d", data);
 
-        snprintf(volChar, 50, "%d", data);
+        float unit = (float) PESOBASE / (float) (ZEROVAL - CALIBVAL);
+        float grama = (float) (ZEROVAL - data) * unit;
+
+        float volume = grama*1000000;
+        
+        printf("\n\nPESO: %.2f gr\n\n", volume);
+
+        snprintf(volChar, 50, "%.2f", volume);
         printf("%s", volChar);
 
         vTaskDelay(pdMS_TO_TICKS(500));
+}
+
+void ds18b20_uso() {
+
+    ds18b20_requestTemperatures();
+    float temp1 = ds18b20_getTempF((DeviceAddress *)tempSensors[0]);
+    float temp2 = ds18b20_getTempF((DeviceAddress *)tempSensors[1]);
+    float temp3 = ds18b20_getTempC((DeviceAddress *)tempSensors[0]);
+    float temp4 = ds18b20_getTempC((DeviceAddress *)tempSensors[1]);
+
+    float cTemp = ds18b20_get_temp();
+    printf("Temperatura: %0.1fC\n", cTemp);
+
+    if (cTemp > 15 && cTemp < 50) {
+        snprintf(tempChar, 50, "%.1f", cTemp);
+        printf("%s", tempChar);
+    } 
+
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
+}
+
+esp_err_t get_handler(httpd_req_t *req) {	
+	httpd_resp_send(req, menu_resp, HTTPD_RESP_USE_STRLEN);
+    return ESP_OK;
 }
 
 esp_err_t volume_handler(httpd_req_t *req) {
@@ -173,45 +195,13 @@ esp_err_t volume_handler(httpd_req_t *req) {
     const char resto_vol_resp[100] = "</h3><a href=\"/\"><button>Voltar</button</a><a href=\"/volume\"><button>Atualizar</button></a>";
     const char void_resp[150] = "";
 
-    printf("CHAMOU O HANDLEEEER");
-
     strcat(void_resp, vol_resp);
     strcat(void_resp, volChar);
     strcat(void_resp, resto_vol_resp);
     printf("%s", void_resp);
 
-    /*if (auxVol == 1) {
-        strcat(vol_resp, volChar);
-        strcat(vol_resp, resto_vol_resp);
-        printf("%s", vol_resp);
-        auxVol = 0;
-    }*/
-
-
     httpd_resp_send(req, void_resp, HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
-}
-
-void ds18b20_uso(){
-    ds18b20_requestTemperatures();
-    float temp1 = ds18b20_getTempF((DeviceAddress *)tempSensors[0]);
-    float temp2 = ds18b20_getTempF((DeviceAddress *)tempSensors[1]);
-    float temp3 = ds18b20_getTempC((DeviceAddress *)tempSensors[0]);
-    float temp4 = ds18b20_getTempC((DeviceAddress *)tempSensors[1]);
-    printf("Temperatures: %0.1fF %0.1fF\n", temp1,temp2);
-    printf("Temperatures: %0.1fC %0.1fC\n", temp3,temp4);
-
-    float cTemp = ds18b20_get_temp();
-    printf("Temperature: %0.1fC\n", cTemp);
-    
-    /*if (cTemp > 0) {
-        snprintf(tempChar, 50, "%.1f", cTemp);
-        printf("%s", tempChar);
-    }*/   
-
-    snprintf(tempChar, 50, "%.1f", cTemp);
-    printf("%s", tempChar);
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
 }
 
 esp_err_t temperatura_handler(httpd_req_t *req) {
@@ -221,12 +211,9 @@ esp_err_t temperatura_handler(httpd_req_t *req) {
     const char resto_on_resp[200] = "</h3><a href=\"/\"><button>Voltar</button</a><a href=\"/temperatura\"><button>Atualizar</button></a>";
     const char void_temp_resp[300] = "";
 
-    printf("CHAMOU O HANDLEEEER");
-
     strcat(void_temp_resp, on_resp);
     strcat(void_temp_resp, tempChar);
     strcat(void_temp_resp, resto_on_resp);
-    //printf("%s", on_resp);
 
     httpd_resp_send(req, void_temp_resp, HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
@@ -234,7 +221,6 @@ esp_err_t temperatura_handler(httpd_req_t *req) {
 
 esp_err_t off_bomb_handler(httpd_req_t *req) {
     gpio_set_level(LIGHT_PIN, 0);
-    printf("\nDESLIGAR LED\n");
 	light_state = 0;
     httpd_resp_send(req, bomba_resp, HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
@@ -242,7 +228,6 @@ esp_err_t off_bomb_handler(httpd_req_t *req) {
 
 esp_err_t on_bomb_handler(httpd_req_t *req) {
     gpio_set_level(LIGHT_PIN, 1);
-    printf("\nLIGAR LED\n");
 	light_state = 1;
     httpd_resp_send(req, bomba_resp, HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
@@ -250,7 +235,6 @@ esp_err_t on_bomb_handler(httpd_req_t *req) {
 
 esp_err_t telegram_handler(httpd_req_t *req) {
     httpd_resp_send(req, telegram_resp, HTTPD_RESP_USE_STRLEN);
-    printf("CHEGOU AQUIIIIIIIIIIII");
     printf("%s", telegram_resp);
     return ESP_OK;
 }
@@ -316,20 +300,21 @@ httpd_handle_t setup_server(void) {
 void getTempAddresses(DeviceAddress *tempSensorAddresses) {
 	unsigned int numberFound = 0;
 	reset_search();
-	// search for 2 addresses on the oneWire protocol
+
 	while (search(tempSensorAddresses[numberFound],true)) {
 		numberFound++;
 		if (numberFound == 2) break;
 	}
-	// if 2 addresses aren't found then flash the LED rapidly
+
 	while (numberFound != 2) {
+        
 		numberFound = 1;
 		digitalWrite(LED, HIGH);
 		vTaskDelay(100 / portTICK_PERIOD_MS);
 		digitalWrite(LED, LOW);
 		vTaskDelay(100 / portTICK_PERIOD_MS);
-		// search in the loop for the temp sensors as they may hook them up
 		reset_search();
+
 		while (search(tempSensorAddresses[numberFound],true)) {
 			numberFound++;
 			if (numberFound == 2) break;
@@ -344,7 +329,6 @@ void app_main(void) {
     //system("open https://blog.eletrogate.com/nodemcu-esp12-alarme-residencial-iot-3/");
     //ShellExecute(NULL, "open", "https://blog.eletrogate.com/nodemcu-esp12-alarme-residencial-iot-3/", NULL, NULL, SW_SHOWNORMAL);
 
-    //Initialize NVS caso necessite guardar alguma config na flash.
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
       ESP_ERROR_CHECK(nvs_flash_erase());
@@ -359,9 +343,6 @@ void app_main(void) {
 	gpio_set_level(LIGHT_PIN, 0);
 	light_state = 0;
 
-    //gpio_reset_pin(LED);
-    //gpio_set_direction(LED, GPIO_MODE_OUTPUT);
-
 	ds18b20_init(TEMP_BUS);
 	getTempAddresses(tempSensors);
 	ds18b20_setResolution(tempSensors,2,10);
@@ -370,9 +351,8 @@ void app_main(void) {
 	printf("Address 1: 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x \n", tempSensors[1][0],tempSensors[1][1],tempSensors[1][2],tempSensors[1][3],tempSensors[1][4],tempSensors[1][5],tempSensors[1][6],tempSensors[1][7]);
 
     while (1) {
-        printf("alo");
         ds18b20_uso();
         hx711_uso();
     } 
 
-        }
+}

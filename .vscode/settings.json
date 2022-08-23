@@ -16,6 +16,7 @@
     "files.associations": {
         "array": "c",
         "string": "c",
-        "string_view": "c"
+        "string_view": "c",
+        "hx711.h": "c"
     }
 }
