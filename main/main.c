@@ -32,7 +32,7 @@
 #define HIGH 1
 #define LOW 0
 #define digitalWrite gpio_set_level
-#define LIGHT_PIN GPIO_NUM_32
+#define BOMBA_STATE GPIO_NUM_32
 #define ZEROVAL 858602765
 #define CALIBVAL 8586059026.8
 #define PESOBASE 250
@@ -43,12 +43,12 @@ static EventGroupHandle_t s_wifi_event_group;
 
 static int s_retry_num = 0;
 static const char *TAG = "hx711-example";
-const char tempChar[5];
-const char volChar[5];
+const char tempChar[10];
+const char volChar[10];
 int aux = 1;
 int auxVol = 1;
 
-static uint8_t light_state = 0;
+static uint8_t estadoBomba = 0;
 
 static void event_handler(void* arg, esp_event_base_t event_base,
                                 int32_t event_id, void* event_data)
@@ -174,10 +174,13 @@ void ds18b20_uso() {
     float temp3 = ds18b20_getTempC((DeviceAddress *)tempSensors[0]);
     float temp4 = ds18b20_getTempC((DeviceAddress *)tempSensors[1]);
 
-    float cTemp = ds18b20_get_temp();
+    float cTemp = 0;
+    
+    cTemp = ds18b20_get_temp();
     printf("Temperatura: %0.1fC\n", cTemp);
 
     if (cTemp > 15 && cTemp < 50) {
+        memset(tempChar, 0, 5);
         snprintf(tempChar, 50, "%.1f", cTemp);
         printf("%s", tempChar);
     } 
@@ -222,15 +225,15 @@ esp_err_t temperatura_handler(httpd_req_t *req) {
 }
 
 esp_err_t off_bomb_handler(httpd_req_t *req) {
-    gpio_set_level(LIGHT_PIN, 0);
-	light_state = 0;
+    gpio_set_level(BOMBA_STATE, 0);
+	estadoBomba = 0;
     httpd_resp_send(req, bomba_resp, HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
 }
 
 esp_err_t on_bomb_handler(httpd_req_t *req) {
-    gpio_set_level(LIGHT_PIN, 1);
-	light_state = 1;
+    gpio_set_level(BOMBA_STATE, 1);
+	estadoBomba = 1;
     httpd_resp_send(req, bomba_resp, HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
 }
@@ -247,7 +250,7 @@ esp_err_t telegram_handler(httpd_req_t *req) {
     strcat(void_telegram_resp, "%0AVolume: ");
     strcat(void_telegram_resp, volChar);
 
-    if (light_state == 1) {
+    if (estadoBomba == 1) {
         strcat(void_telegram_resp, "%0ABomba ligada!");
     } else {
         strcat(void_telegram_resp, "%0ABomba desligada!");
@@ -360,9 +363,9 @@ void app_main(void) {
     wifi_init_sta();        
 	setup_server();
 
-    gpio_set_direction(LIGHT_PIN, GPIO_MODE_OUTPUT);
-	gpio_set_level(LIGHT_PIN, 0);
-	light_state = 0;
+    gpio_set_direction(BOMBA_STATE, GPIO_MODE_OUTPUT);
+	gpio_set_level(BOMBA_STATE, 0);
+	estadoBomba = 0;
 
 	ds18b20_init(TEMP_BUS);
 	getTempAddresses(tempSensors);
